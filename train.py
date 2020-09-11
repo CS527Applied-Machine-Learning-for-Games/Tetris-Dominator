@@ -50,10 +50,6 @@ test_mat = np.array(pd.read_csv('testData/test_mat.csv', header = None))
 terminal_mat = np.array(pd.read_csv('testData/terminal_mat.csv', header = None))
 
 # function definitions
-def get_combined_state(board, shape_location):
-    # TODO: returns the combined board if current tetris shape were to be dropped down immediately
-    return board
-
 def is_terminal_state(st):
     """
     :param st: 20X10 matrix of current tetris board
@@ -93,7 +89,6 @@ def encode_state(st):
 def get_next_state(st, shape, action_index):
     """
     returns the complete 10x20 board after shape is dropped after taking action_index
-    returns reward based on difference between two states
     :param st:
     :param shape:
     :param action_index:
@@ -105,6 +100,7 @@ def get_next_state(st, shape, action_index):
     return new_st
 
 def get_reward(old_board, new_board):
+    # TODO: calculate reward based on difference between old and new boards
     reward = 0
     return reward
 
