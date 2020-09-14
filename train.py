@@ -14,7 +14,6 @@ TRAIN_EPISODES = 1000
 
 # all possible sequence of actions
 # for shape names see https://www.quora.com/What-are-the-different-blocks-in-Tetris-called-Is-there-a-specific-name-for-each-block
-# TODO: generate all combinations of action sequences for each shape
 ACTIONS = dict()
 ACTIONS['O'] = [['left'] * 4, ['left'] * 3, ['left'] * 2, ['left'],
                 [],
@@ -156,18 +155,20 @@ def encode_state(st):
 
     return reduced_state
 
+def get_terminal_position_before_drop(shape, action):
 
-def get_next_state(st, shape, action_index):
+    """return coordinates of <shape> after it has moved through the sequence of <action>"""
+    # TODO
+    terminal_position_before_drop = [];
+    return terminal_position_before_drop
+
+def get_next_state(st, terminal_position_before_drop):
     """
-    returns the complete 10x20 board after shape is dropped after taking action_index
-    :param st:
-    :param shape:
-    :param action_index:
-    :return:
+    gets next state based on current state, and terminal configuration of tetris piece before it is dropped
     """
     old_st = st
     new_st = st
-    # TODO: update state based on action_index and shape
+    # TODO
     return new_st
 
 
