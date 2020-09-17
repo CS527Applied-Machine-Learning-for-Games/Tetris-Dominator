@@ -1,7 +1,7 @@
 # imports
 import numpy as np
 import pandas as pd
-
+from collections import Counter
 # constant definitions
 EPSILON = 0.9
 GAMMA = 0.9
@@ -95,6 +95,16 @@ ACTIONS['Z'] = [['left'] * 4, ['left'] * 3, ['left'] * 2, ['left'],
 
 SHAPES = ['O', 'I', 'J', 'L', 'S', 'T', 'Z']
 
+SHAPE_STARTING_COORDS = dict()
+SHAPE_STARTING_COORDS['O'] = [(19,4), (19,5), (18,4), (18,5)]
+SHAPE_STARTING_COORDS['I'] = [(19,5), (18,5), (17,5), (16,5)]
+SHAPE_STARTING_COORDS['L'] = [(19,4), (18,4), (17,4), (17,5)]
+SHAPE_STARTING_COORDS['J'] = [(17,4), (19,5), (18,4), (17,5)]
+SHAPE_STARTING_COORDS['S'] = [(18,4), (19,5), (18,5), (19,6)]
+SHAPE_STARTING_COORDS['Z'] = [(19,4), (19,5), (18,5), (18,6)]
+SHAPE_STARTING_COORDS['T'] = [(19,4), (19,5), (18,5), (19,6)]
+
+
 # all possible shapes
 
 # variable definitions
@@ -155,11 +165,82 @@ def encode_state(st):
 
     return reduced_state
 
+def get_rotated_coordinates(shape, n):
+    """
+    n: number of rotations
+    """
+    if n == 0:
+        return shape
+    elif shape == 'O':
+        return shape
+    elif shape == 'I':
+        if n == 1:
+            return [(19,4), (19,5), (19,6), (19,7)]
+        else:
+            raise Exception
+    elif shape == 'L':
+        if n == 1:
+            return [(18,4), (18,5), (19,6), (18,6)]
+        elif n == 2:
+            return [(19,4), (19,5), (18,5), (17,5)]
+        elif n == 3:
+            return [(19,4), (18,4), (19,5), (19,6)]
+        else:
+            raise Exception
+    elif shape == 'J':
+        if n == 1:
+            return [(19,4), (19,5), (19,6), (18,6)]
+        elif n == 2:
+            return [(19,4), (18,4), (17,4), (19,5)]
+        elif n == 3:
+            return [(19,4), (18,4), (18,5), (18,6)]
+        else:
+            raise Exception
+    elif shape == 'S':
+        if n == 1:
+            return [(19,4), (18,4), (18,5), (17,5)]
+        else:
+            raise Exception
+    elif shape == 'Z':
+        if n == 1:
+            return [(18,4), (17,4), (19,5), (18,5)]
+        else:
+            raise Exception
+    elif shape == 'T':
+        if n == 1:
+            return [(19,4), (18,4), (17,4), (18,5)]
+        elif n == 2:
+            return [(18,4), (19,5), (18,5), (18,6)]
+        elif n == 3:
+            return [(18,4), (19,5), (18,5), (17,5)]
+        else:
+            raise Exception
+    else:
+        raise Exception
+            
+    
+
 def get_terminal_position_before_drop(shape, action):
 
     """return coordinates of <shape> after it has moved through the sequence of <action>"""
-    # TODO
-    terminal_position_before_drop = [];
+    # create a counter for number of rotations and left/right moves
+    action_counter = Counter(action)
+    n_left = action_counter['left']
+    n_rotate = action_counter['rotate']
+    n_right = action_counter['right']
+    
+    terminal_position_before_drop = get_rotated_coordinates(shape, n_rotate)
+    if n_left:
+        # move left n_left times
+        for i in range(len(terminal_position_before_drop)):
+            (x,y) = terminal_position_before_drop[i]
+            terminal_position_before_drop[i] = (x, y - n_left)
+        # move right n_right times
+    if n_right:
+        for i in range(len(terminal_position_before_drop)):
+            (x,y) = terminal_position_before_drop[i]
+            terminal_position_before_drop[i] = (x, y + n_right)
+
     return terminal_position_before_drop
 
 def get_next_state(st, terminal_position_before_drop):
@@ -176,7 +257,6 @@ def get_reward(old_board, new_board):
     # TODO: calculate reward based on difference between old and new boards
     reward = 0
     return reward
-
 
 def get_new_random_shape():
     return np.random.choice(SHAPES)
