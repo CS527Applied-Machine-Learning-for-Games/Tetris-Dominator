@@ -286,17 +286,15 @@ def get_next_state(st, shape, action_index):
     # detect any complete lines and cancel them if any
     new_st = new_st[np.where(np.count_nonzero(new_st, axis=1) < 10)]
 
+    lines_cancelled = 0
     if len(new_st) != len(st):
         lines_cancelled = len(st) - len(new_st)
         new_st = np.insert(new_st, 0, [np.zeros(10)]*lines_cancelled, 0)
-    return new_st
 
-
-def get_reward(old_board, new_board):
-    # TODO: calculate reward based on difference between old and new boards
-    reward = 0
-    return reward
-
+    reward = lines_cancelled*100
+    if lines_cancelled > 1:
+        reward += 2**(lines_cancelled - 1)*100
+    return new_st, reward
 
 def get_new_random_shape():
     return np.random.choice(SHAPES)
@@ -325,10 +323,9 @@ def train():
             # get a sequence of action from list of ACTIONS
             action_index = get_next_action(old_reduced_state, shape)
 
-            # get the next state based on current state and action chosen
-            new_st = get_next_state(st, shape, action_index)
+            # get the next state and reward based on current state and action chosen
+            new_st, reward = get_next_state(st, shape, action_index)
             new_reduced_state = encode_state(new_st)
-            reward = get_reward(st, new_st)
 
             # update Q value based on temporal difference
             old_q_value = Q_values[shape][tuple(old_reduced_state), action_index]
