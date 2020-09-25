@@ -9,12 +9,12 @@ import matplotlib.pyplot as plt
 #%% constant definitions
 EPSILON = 0.9 # chance to take an optimal move, instead of random move during training
 GAMMA = 0.9 # discount reward factor
-ALPHA = 0.5 # learning rate
+ALPHA = 0.1 # learning rate
 
 GRID_HEIGHT = 20
 GRID_WIDTH = 10
 
-TRAIN_EPISODES = 10000
+TRAIN_EPISODES = 1000000
 
 
 # all possible sequence of actions
@@ -117,7 +117,7 @@ SHAPE_STARTING_COORDS['T'] = [(19, 4), (19, 5), (18, 5), (19, 6)]
 # st = [s1,...,s10], 0<=si<=4
 # at = [0,1,2,3,4,5] = [left, right, turn1, turn2, turn3, no move']
 # Q_values
-N = 2
+N = 1
 Q_values = dict()
 Q_values['O'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(ACTIONS['O'])))
 Q_values['I'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(ACTIONS['I'])))
@@ -252,6 +252,34 @@ def get_next_state(st, shape, action_index):
     """
     gets next state based on current state, and terminal configuration of tetris piece before it is dropped
     """
+    # fitness function parameters for the old state
+    old_st_aggregate_height = 0
+    old_st_aggregate_holes = 0
+    old_st_aggregate_bumpiness = 0
+    prev_height = None
+    
+    for col in range(len(st[0])):
+        # aggregate height
+        try:
+            height = np.max(np.nonzero(np.flip(st[:, col]))) + 1
+        except ValueError:
+            height = 0
+        old_st_aggregate_height += height
+
+        # holes
+        holes = height - sum(st[:,col])
+        old_st_aggregate_holes += holes
+        
+        # bumpiness
+        if col == 0:
+            prev_height = height
+        else:
+            bumpiness = abs(height - prev_height)
+            old_st_aggregate_bumpiness += bumpiness
+            prev_height = height
+
+    
+    
     # make a deepcopy of new state so that we still have the configurations of the old state to compare
     new_st = deepcopy(st)
 
@@ -290,24 +318,65 @@ def get_next_state(st, shape, action_index):
     # detect any complete lines and cancel them if any
     new_st = new_st[np.where(np.count_nonzero(new_st, axis=1) < 10)]
 
+    # lines cancelled
     lines_cancelled = 0
     if len(new_st) != len(st):
         lines_cancelled = len(st) - len(new_st)
         new_st = np.insert(new_st, 0, [np.zeros(10)]*lines_cancelled, 0)
-
-    reward = lines_cancelled*100
-    if lines_cancelled > 1:
-        reward += 2**(lines_cancelled - 1)*100
         
-    # add a penalty of 10 points for every line added to encourage agent to keep board flat
-    max_height_old_st = max(board_top_height.values())
-    max_height_new_st = -1
-    for i in range(len(new_st)):
-        if 1 in new_st[i]:
-            max_height_new_st = i
-    reward -= (max_height_new_st - max_height_old_st)*10
+    # fitness function parameters for the old state
+    new_st_aggregate_height = 0
+    new_st_aggregate_holes = 0
+    new_st_aggregate_bumpiness = 0
+    prev_height = None
     
-    return new_st, reward
+    for col in range(len(new_st[0])):
+        # aggregate height
+        try:
+            height = np.max(np.nonzero(np.flip(new_st[:, col]))) + 1
+        except ValueError:
+            height = 0
+        new_st_aggregate_height += height
+
+        # holes
+        holes = height - sum(new_st[:,col])
+        new_st_aggregate_holes += holes
+        
+        # bumpiness
+        if col == 0:
+            prev_height = height
+        else:
+            bumpiness = abs(height - prev_height)
+            new_st_aggregate_bumpiness += bumpiness
+            prev_height = height
+    
+    delta_aggregate_height = new_st_aggregate_height - old_st_aggregate_height
+    delta_aggregate_holes = new_st_aggregate_holes - old_st_aggregate_holes
+    delta_aggregate_bumpiness = new_st_aggregate_bumpiness - old_st_aggregate_bumpiness
+    
+    # coefficients are from https://codemyroad.wordpress.com/2013/04/14/tetris-ai-the-near-perfect-player/
+    reward = -0.51*delta_aggregate_height + 0.76*lines_cancelled - 0.36*delta_aggregate_holes - 0.18*delta_aggregate_bumpiness
+        
+    #
+    # reward = lines_cancelled*100
+    # if lines_cancelled > 1:
+    #     reward += 2**(lines_cancelled - 1)*100
+    #
+    # # add a penalty of 10 points for every line added to encourage agent to keep board flat
+    # max_height_old_st = max(board_top_height.values())
+    # max_height_new_st = -1
+    # for i in range(len(new_st)):
+    #     if 1 in new_st[i]:
+    #         max_height_new_st = i
+    # reward -= (max_height_new_st - max_height_old_st)*10
+    
+    return new_st, reward, lines_cancelled
+
+def get_score(lines_cancelled):
+    score = lines_cancelled*100
+    if lines_cancelled > 1:
+        score += 2**(lines_cancelled - 1)*100
+    return score
 
 def get_new_random_shape():
     return np.random.choice(SHAPES)
@@ -340,7 +409,7 @@ for episode in range(TRAIN_EPISODES):
         action_index = get_next_action(old_reduced_state, shape)
 
         # get the next state and reward based on current state and action chosen
-        new_st, reward = get_next_state(st, shape, action_index)
+        new_st, reward, lines_cancelled = get_next_state(st, shape, action_index)
         new_reduced_state = encode_state(new_st, N)
 
         # update Q value based on temporal difference
@@ -352,4 +421,30 @@ for episode in range(TRAIN_EPISODES):
         # transition into new st
         st = new_st
 
-        SCORE[episode] += reward
+        SCORE[episode] += get_score(lines_cancelled)
+
+#%% save results
+with open('Q_values_N=1.npy', 'wb') as file:
+    np.save(file, Q_values)
+#%% actual game where we set EPSILON = 1
+EPSILON = 1
+st = np.zeros((20, 10))
+score = 0
+while not is_terminal_state(st):
+    # reduced state representation of st by encoding based on its top 4 lines:
+    old_reduced_state = encode_state(st, N)
+
+    # generate a random piece of tetriminoe
+    shape = get_new_random_shape()
+
+    # get a sequence of action from list of ACTIONS
+    action_index = get_next_action(old_reduced_state, shape)
+
+    # get the next state and reward based on current state and action chosen
+    new_st, reward, lines_cancelled = get_next_state(st, shape, action_index)
+    new_reduced_state = encode_state(new_st, N)
+
+    # transition into new st
+    st = new_st
+    score += get_score(lines_cancelled)
+print('score for this game is ' + str(score))
