@@ -14,7 +14,7 @@ ALPHA = 0.1 # learning rate
 GRID_HEIGHT = 20
 GRID_WIDTH = 10
 
-TRAIN_EPISODES = 1000000
+TRAIN_EPISODES = 10000
 
 
 # all possible sequence of actions
@@ -117,6 +117,8 @@ SHAPE_STARTING_COORDS['T'] = [(19, 4), (19, 5), (18, 5), (19, 6)]
 # st = [s1,...,s10], 0<=si<=4
 # at = [0,1,2,3,4,5] = [left, right, turn1, turn2, turn3, no move']
 # Q_values
+
+# initialize as zero
 N = 1
 Q_values = dict()
 Q_values['O'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(ACTIONS['O'])))
@@ -127,6 +129,12 @@ Q_values['S'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(
 Q_values['T'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(ACTIONS['T'])))
 Q_values['Z'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(ACTIONS['Z'])))
 
+#%% read from existing binary
+
+# loop over folder containing shape-specific Q matrices
+
+# for shape in SHAPES:
+#     Q_values[shape] = np.load('Q_values/N=' + str(N) + '/Q_mat_' + shape + '.npy')
 #%% test matrix
 test_mat = np.array(pd.read_csv('testData/test_mat.csv', header=None))
 terminal_mat = np.array(pd.read_csv('testData/terminal_mat.csv', header=None))
@@ -424,8 +432,9 @@ for episode in range(TRAIN_EPISODES):
         SCORE[episode] += get_score(lines_cancelled)
 
 #%% save results
-with open('Q_values_N=1.npy', 'wb') as file:
-    np.save(file, Q_values)
+for shape in SHAPES:
+    with open('Q_values/N=' + str(N) + '/Q_mat_' + shape + '.npy', 'wb') as file:
+        np.save(file, Q_values[shape])
 #%% actual game where we set EPSILON = 1
 EPSILON = 1
 st = np.zeros((20, 10))
