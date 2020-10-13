@@ -29,7 +29,7 @@ function ShapeL(){
 	this.flag = 'L';
 }
 
-function ShapeLR()
+function ShapeJ()
 {
 	var state1 = [  [0, 1],
 					[0, 1],
@@ -49,7 +49,7 @@ function ShapeLR()
 	this.states = [ state1, state2, state3, state4 ];
 	this.x = 4;
 	this.y = -3;
-	this.flag = 'LR';
+	this.flag = 'J';
 }
 
 function ShapeO()
@@ -118,7 +118,7 @@ function ShapeZ()
 	this.flag = 'Z';
 }
 
-function ShapeZR()
+function ShapeS()
 {
 	var state1 = [  [0, 1, 1],
 					[1, 1, 0] ];
@@ -130,7 +130,7 @@ function ShapeZR()
 	this.states = [ state1, state2 ];
 	this.x = 4;
 	this.y = -2;
-	this.flag = 'ZR';
+	this.flag = 'S';
 }
 
 /**
@@ -178,12 +178,12 @@ var isShapeCanMove = function(shape,matrix,action){
  All shapes shares the same method, use prototype for memory optimized
 */
 ShapeL.prototype =
-ShapeLR.prototype =
+ShapeJ.prototype =
 ShapeO.prototype =
 ShapeI.prototype =
 ShapeT.prototype =
 ShapeZ.prototype =
-ShapeZR.prototype = {
+ShapeS.prototype = {
 
 	init:function(){
 		this.color = COLORS[Math.floor(Math.random() * 7)];
@@ -314,8 +314,8 @@ function randomShape()
 		case 1: shape = new ShapeO();			break;
 		case 2: shape = new ShapeZ();			break;
 		case 3: shape = new ShapeT();			break;
-		case 4: shape = new ShapeLR();			break;
-		case 5: shape = new ShapeZR();			break;
+		case 4: shape = new ShapeJ();			break;
+		case 5: shape = new ShapeS();			break;
 		case 6: shape = new ShapeI();			break;
 	}
 	shape.init();
