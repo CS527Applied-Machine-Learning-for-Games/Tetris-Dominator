@@ -2,3 +2,4 @@ venv/
 Q-learning-demo.py
 .idea
 __pycache__
+Q_values/
