@@ -537,7 +537,7 @@ Tetris.prototype = {
 		var shape = this.shape;
 		var params = [board, shape];
 		const getNextActions = async () => {
-			const response = await fetch('http://127.0.0.1:5000/tetris/next', {
+			const response = await fetch('http://0.0.0.1:5000/tetris/next', {
 			  method: 'POST',
 			  body: JSON.stringify(params), // string or object
 			  headers: {
@@ -564,7 +564,7 @@ Tetris.prototype = {
 					this.shape.rotate(matrix);
 					this._draw();
 				}
-				await this._sleep(200);
+				// await this._sleep(10);
 			}
 			var matrix = this.matrix;
 			this.shape.goBottom(matrix);
@@ -890,12 +890,27 @@ ShapeS.prototype = {
 	}
 }
 
+
+var bag = new Set();
+for (var i = 0; i < 7; i++) {
+	bag.add(i);
+}
 /**
 	Create  a random shape for game
 */
 function randomShape()
 {
-	var result = Math.floor( Math.random() * 7 );
+	var result = -1;
+	while (bag.size != 0 && !bag.has(result)) {
+		result = Math.floor( Math.random() * 7 );
+	}
+
+	bag.delete(result);
+	if (bag.size == 0) {
+		for (var i = 0; i < 7; i++) {
+			bag.add(i);
+		}
+	}
 	var shape;
 
 	switch(result)

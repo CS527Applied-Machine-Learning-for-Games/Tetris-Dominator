@@ -7,9 +7,12 @@ import numpy as np
 app = Flask(__name__)
 CORS(app, resources=r'/*')
 
-Q_values = dict()
-for shape in utils.SHAPES:
-    Q_values[shape] = np.load('./Q_mat_' + shape + '.npy')
+GRID_HEIGHT = 20
+GRID_WIDTH = 10
+
+# Q_values = dict()
+# for shape in utils.SHAPES:
+#     Q_values[shape] = np.load('./Q_mat_' + shape + '.npy')
 
 @app.route('/tetris/test')
 def hello():
@@ -20,13 +23,16 @@ def hello():
 def get_next_step():
     params = request.get_json()
     board = params[0]
+    st = np.zeros((GRID_HEIGHT, GRID_WIDTH))
     for i in range(len(board)):
         for j in range(len(board[0])):
             if board[i][j] != 0:
-                board[i][j] = 1
-    reduced_state = utils.encode_state(board, 4)
+                st[i][j] = 1
+    # reduced_state = utils.encode_state(board, 4)
     shape = params[1]["flag"]
-    action_index = np.argmax(Q_values[shape][tuple(reduced_state)])
+    print(shape, st)
+    # action_index = np.argmax(Q_values[shape][tuple(reduced_state)])
+    action_index = utils.get_next_action_state_test(st, shape)
     action = utils.ACTIONS[shape][action_index]
     return jsonify(action)
 
