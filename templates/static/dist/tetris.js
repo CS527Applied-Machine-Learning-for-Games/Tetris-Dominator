@@ -3,7 +3,6 @@
 var utils = require('./utils.js');
 var consts = require('./consts.js');
 
-
 var lineColor =  consts.GRID_LINE_COLOR;
 
 var boxBorderColor = consts.BOX_BORDER_COLOR;
@@ -409,6 +408,7 @@ Tetris.prototype = {
 	start:function(){
 		this.running = true;
 		window.requestAnimationFrame(utils.proxy(this._refresh,this));
+		this._nextActions();
 	},
 	//Pause game
 	pause:function(){
@@ -497,6 +497,7 @@ Tetris.prototype = {
 			this.shape.copyTo(this.matrix);
 			this._check();
 			this._fireShape();
+			this._nextActions();
 		}
 		this._draw();
 		this.isGameOver = checkGameOver(this.matrix);
@@ -529,6 +530,52 @@ Tetris.prototype = {
 			views.setLevel(this.level);
 			this.levelTime = currentTime;
 		}
+	},
+    // Ask backend to compute next actions 
+	_nextActions:function() {
+		var board = this.matrix;
+		var shape = this.shape;
+		var params = [board, shape];
+		const getNextActions = async () => {
+			const response = await fetch('http://0.0.0.1:5000/tetris/next', {
+			  method: 'POST',
+			  body: JSON.stringify(params), // string or object
+			  headers: {
+				'Content-Type': 'application/json'
+			  }
+			});
+			const actions = await response.json(); //extract JSON from the http response
+			console.log(actions);
+			idx = 0;
+			for (const i in actions) {
+				const action = actions[i];
+				var matrix = this.matrix;
+				if (this.isGameOver||!this.shape){
+					return;
+				}
+				
+				if (action === 'left') {
+					this.shape.goLeft(matrix);
+					this._draw();
+				} else if (action === 'right') {
+					this.shape.goRight(matrix);
+					this._draw();
+				} else if (action == 'rotate') {
+					this.shape.rotate(matrix);
+					this._draw();
+				}
+				// await this._sleep(10);
+			}
+			var matrix = this.matrix;
+			this.shape.goBottom(matrix);
+			this._update();
+		// do something with myJson
+		}
+		getNextActions();
+
+	},
+	_sleep:function(ms){
+		return new Promise((resolve)=>setTimeout(resolve,ms));
 	}
 }
 
@@ -572,7 +619,7 @@ function ShapeL(){
 	this.flag = 'L';
 }
 
-function ShapeLR()
+function ShapeJ()
 {
 	var state1 = [  [0, 1],
 					[0, 1],
@@ -592,7 +639,7 @@ function ShapeLR()
 	this.states = [ state1, state2, state3, state4 ];
 	this.x = 4;
 	this.y = -3;
-	this.flag = 'LR';
+	this.flag = 'J';
 }
 
 function ShapeO()
@@ -661,7 +708,7 @@ function ShapeZ()
 	this.flag = 'Z';
 }
 
-function ShapeZR()
+function ShapeS()
 {
 	var state1 = [  [0, 1, 1],
 					[1, 1, 0] ];
@@ -673,7 +720,7 @@ function ShapeZR()
 	this.states = [ state1, state2 ];
 	this.x = 4;
 	this.y = -2;
-	this.flag = 'ZR';
+	this.flag = 'S';
 }
 
 /**
@@ -721,12 +768,12 @@ var isShapeCanMove = function(shape,matrix,action){
  All shapes shares the same method, use prototype for memory optimized
 */
 ShapeL.prototype =
-ShapeLR.prototype =
+ShapeJ.prototype =
 ShapeO.prototype =
 ShapeI.prototype =
 ShapeT.prototype =
 ShapeZ.prototype =
-ShapeZR.prototype = {
+ShapeS.prototype = {
 
 	init:function(){
 		this.color = COLORS[Math.floor(Math.random() * 7)];
@@ -843,12 +890,27 @@ ShapeZR.prototype = {
 	}
 }
 
+
+var bag = new Set();
+for (var i = 0; i < 7; i++) {
+	bag.add(i);
+}
 /**
 	Create  a random shape for game
 */
 function randomShape()
 {
-	var result = Math.floor( Math.random() * 7 );
+	var result = -1;
+	while (bag.size != 0 && !bag.has(result)) {
+		result = Math.floor( Math.random() * 7 );
+	}
+
+	bag.delete(result);
+	if (bag.size == 0) {
+		for (var i = 0; i < 7; i++) {
+			bag.add(i);
+		}
+	}
 	var shape;
 
 	switch(result)
@@ -857,8 +919,8 @@ function randomShape()
 		case 1: shape = new ShapeO();			break;
 		case 2: shape = new ShapeZ();			break;
 		case 3: shape = new ShapeT();			break;
-		case 4: shape = new ShapeLR();			break;
-		case 5: shape = new ShapeZR();			break;
+		case 4: shape = new ShapeJ();			break;
+		case 5: shape = new ShapeS();			break;
 		case 6: shape = new ShapeI();			break;
 	}
 	shape.init();

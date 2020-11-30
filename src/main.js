@@ -296,6 +296,24 @@ Tetris.prototype = {
 			views.setLevel(this.level);
 			this.levelTime = currentTime;
 		}
+	},
+    // Ask backend to compute next actions 
+	_nextActions : function() {
+		var board = this.matrix;
+		var shape = this.shape;
+		var params = [board, shape];
+		const getNextActions = async () => {
+			const response = await fetch('http://127.0.0.1:5000/tetris/next', {
+			  method: 'POST',
+			  body: params, // string or object
+			  headers: {
+				'Content-Type': 'application/json'
+			  }
+			});
+		const myJson = await response.json(); //extract JSON from the http response
+		// do something with myJson
+		}
+		// getNextActions();
 	}
 }
 
