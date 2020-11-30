@@ -4,17 +4,22 @@ import pandas as pd
 from collections import Counter
 from copy import deepcopy
 import matplotlib.pyplot as plt
-
+from sys import maxsize as MAXSIZE
+from time import time
+from random import shuffle
 
 #%% constant definitions
-EPSILON = 0.9 # chance to take an optimal move, instead of random move during training
-GAMMA = 0.9 # discount reward factor
+EPSILON = 0.05 # chance to take an optimal move, instead of random move during training
+GAMMA = 0.999 # discount reward factor
 ALPHA = 0.1 # learning rate
 
 GRID_HEIGHT = 20
 GRID_WIDTH = 10
 
-TRAIN_EPISODES = 10000
+EPOCHS = 1
+EPISODE_PER_EPOCH = 100
+
+
 
 
 # all possible sequence of actions
@@ -101,13 +106,13 @@ ACTIONS['Z'] = [['left'] * 4, ['left'] * 3, ['left'] * 2, ['left'],
 SHAPES = ['O', 'I', 'J', 'L', 'S', 'T', 'Z']
 
 SHAPE_STARTING_COORDS = dict()
-SHAPE_STARTING_COORDS['O'] = [(19, 4), (19, 5), (18, 4), (18, 5)]
-SHAPE_STARTING_COORDS['I'] = [(19, 5), (18, 5), (17, 5), (16, 5)]
-SHAPE_STARTING_COORDS['L'] = [(19, 4), (18, 4), (17, 4), (17, 5)]
-SHAPE_STARTING_COORDS['J'] = [(17, 4), (19, 5), (18, 4), (17, 5)]
-SHAPE_STARTING_COORDS['S'] = [(18, 4), (19, 5), (18, 5), (19, 6)]
-SHAPE_STARTING_COORDS['Z'] = [(19, 4), (19, 5), (18, 5), (18, 6)]
-SHAPE_STARTING_COORDS['T'] = [(19, 4), (19, 5), (18, 5), (19, 6)]
+SHAPE_STARTING_COORDS['O'] = [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-2, 5)]
+SHAPE_STARTING_COORDS['I'] = [(GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-3, 5), (GRID_HEIGHT-4, 5)]
+SHAPE_STARTING_COORDS['L'] = [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-3, 4), (GRID_HEIGHT-3, 5)]
+SHAPE_STARTING_COORDS['J'] = [(GRID_HEIGHT-3, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-3, 5)]
+SHAPE_STARTING_COORDS['S'] = [(GRID_HEIGHT-2, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-1, 6)]
+SHAPE_STARTING_COORDS['Z'] = [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-2, 6)]
+SHAPE_STARTING_COORDS['T'] = [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-1, 6)]
 
 # all possible shapes
 
@@ -119,7 +124,7 @@ SHAPE_STARTING_COORDS['T'] = [(19, 4), (19, 5), (18, 5), (19, 6)]
 # Q_values
 
 # initialize as zero
-N = 1
+N = 4
 Q_values = dict()
 Q_values['O'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(ACTIONS['O'])))
 Q_values['I'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(ACTIONS['I'])))
@@ -132,9 +137,9 @@ Q_values['Z'] = np.zeros((N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, N+1, len(
 #%% read from existing binary
 
 # loop over folder containing shape-specific Q matrices
-
-# for shape in SHAPES:
-#     Q_values[shape] = np.load('Q_values/N=' + str(N) + '/Q_mat_' + shape + '.npy')
+Q_values = dict()
+for shape in SHAPES:
+    Q_values[shape] = np.load('Q_values/N=' + str(N) + '/Q_mat_' + shape + '.npy')
 #%% test matrix
 test_mat = np.array(pd.read_csv('testData/test_mat.csv', header=None))
 terminal_mat = np.array(pd.read_csv('testData/terminal_mat.csv', header=None))
@@ -143,7 +148,7 @@ terminal_mat = np.array(pd.read_csv('testData/terminal_mat.csv', header=None))
 #%% function definitions
 def is_terminal_state(st):
     """
-    :param st: 20X10 matrix of current tetris board
+    :param st: matrix of current tetris board
 
     :return: boolean if matrix represents a terminal state of the Tetris game
     """
@@ -189,44 +194,44 @@ def get_rotated_coordinates(shape, n):
         return deepcopy(SHAPE_STARTING_COORDS[shape])
     elif shape == 'I':
         if n == 1:
-            return [(19, 5), (19, 6), (19, 7), (19, 8)]
+            return [(GRID_HEIGHT-1, 5), (GRID_HEIGHT-1, 6), (GRID_HEIGHT-1, 7), (GRID_HEIGHT-1, 8)]
         else:
             raise Exception
     elif shape == 'L':
         if n == 1:
-            return [(18, 4), (18, 5), (19, 6), (18, 6)]
+            return [(GRID_HEIGHT-2, 4), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-1, 6), (GRID_HEIGHT-2, 6)]
         elif n == 2:
-            return [(19, 4), (19, 5), (18, 5), (17, 5)]
+            return [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-3, 5)]
         elif n == 3:
-            return [(19, 4), (18, 4), (19, 5), (19, 6)]
+            return [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-1, 6)]
         else:
             raise Exception
     elif shape == 'J':
         if n == 1:
-            return [(19, 4), (19, 5), (19, 6), (18, 6)]
+            return [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-1, 6), (GRID_HEIGHT-2, 6)]
         elif n == 2:
-            return [(19, 4), (18, 4), (17, 4), (19, 5)]
+            return [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-3, 4), (GRID_HEIGHT-1, 5)]
         elif n == 3:
-            return [(19, 4), (18, 4), (18, 5), (18, 6)]
+            return [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-2, 6)]
         else:
             raise Exception
     elif shape == 'S':
         if n == 1:
-            return [(19, 4), (18, 4), (18, 5), (17, 5)]
+            return [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-3, 5)]
         else:
             raise Exception
     elif shape == 'Z':
         if n == 1:
-            return [(18, 4), (17, 4), (19, 5), (18, 5)]
+            return [(GRID_HEIGHT-2, 4), (GRID_HEIGHT-3, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5)]
         else:
             raise Exception
     elif shape == 'T':
         if n == 1:
-            return [(19, 4), (18, 4), (17, 4), (18, 5)]
+            return [(GRID_HEIGHT-1, 4), (GRID_HEIGHT-2, 4), (GRID_HEIGHT-3, 4), (GRID_HEIGHT-2, 5)]
         elif n == 2:
-            return [(18, 4), (19, 5), (18, 5), (18, 6)]
+            return [(GRID_HEIGHT-2, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-2, 6)]
         elif n == 3:
-            return [(18, 4), (19, 5), (18, 5), (17, 5)]
+            return [(GRID_HEIGHT-2, 4), (GRID_HEIGHT-1, 5), (GRID_HEIGHT-2, 5), (GRID_HEIGHT-3, 5)]
         else:
             raise Exception
     else:
@@ -311,7 +316,7 @@ def get_next_state(st, shape, action_index):
             board_top_height[col] = len(st) - 1 - np.where(st[:, col] == 1)[0][0]
 
     # determine minimum gap between shape and current tetris board, and corresponding column
-    min_gap = 20
+    min_gap = GRID_HEIGHT
     for col in shape_bottom_coords.keys():
         if shape_bottom_coords[col] - board_top_height[col] < min_gap:
             min_gap = shape_bottom_coords[col] - board_top_height[col]
@@ -319,7 +324,7 @@ def get_next_state(st, shape, action_index):
     # bring all columns of tetriminoe down by min_gap
     for i, j in terminal_position_before_drop:
         # convert to vertical coordinates for st
-        i = 19 - i
+        i = GRID_HEIGHT - 1 - i
         # fill board
         new_st[i + min_gap - 1][j] = 1
 
@@ -358,6 +363,7 @@ def get_next_state(st, shape, action_index):
             new_st_aggregate_bumpiness += bumpiness
             prev_height = height
     
+    old_st_aggregate_height += lines_cancelled*GRID_WIDTH
     delta_aggregate_height = new_st_aggregate_height - old_st_aggregate_height
     delta_aggregate_holes = new_st_aggregate_holes - old_st_aggregate_holes
     delta_aggregate_bumpiness = new_st_aggregate_bumpiness - old_st_aggregate_bumpiness
@@ -365,20 +371,9 @@ def get_next_state(st, shape, action_index):
     # coefficients are from https://codemyroad.wordpress.com/2013/04/14/tetris-ai-the-near-perfect-player/
     reward = -0.51*delta_aggregate_height + 0.76*lines_cancelled - 0.36*delta_aggregate_holes - 0.18*delta_aggregate_bumpiness
         
-    #
-    # reward = lines_cancelled*100
-    # if lines_cancelled > 1:
-    #     reward += 2**(lines_cancelled - 1)*100
-    #
-    # # add a penalty of 10 points for every line added to encourage agent to keep board flat
-    # max_height_old_st = max(board_top_height.values())
-    # max_height_new_st = -1
-    # for i in range(len(new_st)):
-    #     if 1 in new_st[i]:
-    #         max_height_new_st = i
-    # reward -= (max_height_new_st - max_height_old_st)*10
     
     return new_st, reward, lines_cancelled
+    
 
 def get_score(lines_cancelled):
     score = lines_cancelled*100
@@ -386,74 +381,147 @@ def get_score(lines_cancelled):
         score += 2**(lines_cancelled - 1)*100
     return score
 
-def get_new_random_shape():
-    return np.random.choice(SHAPES)
-
 
 def get_next_action(reduced_state, shape):
-    if np.random.random() < EPSILON:
-        # return the action that maximizes Q value of given reduced state
+    if np.random.random() > EPSILON:
+        # if np.count_nonzero(Q_values[shape][tuple(reduced_state)]):
+        #     # return the action that maximizes Q value of given reduced state
+        #     return np.argmax(Q_values[shape][tuple(reduced_state)])
+        # else:
+        #     arg_max_action_index, max_reward = 0, -MAXSIZE
+        #     # approximate actual state with the reduced state
+        #     apprx_st = np.zeros((GRID_HEIGHT, GRID_WIDTH))
+        #     for col in range(GRID_WIDTH):
+        #         apprx_st[:,col][GRID_HEIGHT - reduced_state[col]:GRID_HEIGHT] = 1
+        #     # pick the action that maximizes reward based on fitness function
+        #     for action_index in range(len(ACTIONS[shape])):
+        #         new_st, reward, lines_cancelled = get_next_state(apprx_st, shape, action_index)
+        #         if reward > max_reward:
+        #             arg_max_action_index = action_index
+        #             max_reward = reward
+        #     return arg_max_action_index
+        
         return np.argmax(Q_values[shape][tuple(reduced_state)])
+
     else:
         # return a random action
         return np.random.randint(len(ACTIONS[shape]))
 
+#%% targetted training to fill missing state-action pairs
+SIZE = 0
+for shape in SHAPES:
+    SIZE += Q_values[shape].size
+
+
+counter = 0
+start = time()
+for shape in SHAPES:
+    for i in range(N+1):
+        for j in range(N+1):
+            for k in range(N+1):
+                for l in range(N+1):
+                    for m in range(N+1):
+                        for n in range(N+1):
+                            for o in range(N+1):
+                                for p in range(N+1):
+                                    for q in range(N+1):
+                                        for r in range(N+1):
+                                            for action_index in range(len(ACTIONS[shape])):
+                                                if counter % 100000 == 0:
+                                                    percentage_complete = counter/SIZE * 100
+                                                    print('percentage complete = ' + str(percentage_complete) + '%')
+                                                    print('time elapsed: ' + str(time() - start) + ' seconds')
+                                                if Q_values[shape][tuple([i,j,k,l,m,n,o,p,q,r,action_index])] == 0:
+                                                    st = np.zeros((GRID_HEIGHT, GRID_WIDTH))
+                                                    st[:,0][GRID_HEIGHT-i:GRID_HEIGHT] = 1
+                                                    st[:,1][GRID_HEIGHT-j:GRID_HEIGHT] = 1
+                                                    st[:,2][GRID_HEIGHT-k:GRID_HEIGHT] = 1
+                                                    st[:,3][GRID_HEIGHT-l:GRID_HEIGHT] = 1
+                                                    st[:,4][GRID_HEIGHT-m:GRID_HEIGHT] = 1
+                                                    st[:,5][GRID_HEIGHT-n:GRID_HEIGHT] = 1
+                                                    st[:,6][GRID_HEIGHT-o:GRID_HEIGHT] = 1
+                                                    st[:,7][GRID_HEIGHT-p:GRID_HEIGHT] = 1
+                                                    st[:,8][GRID_HEIGHT-q:GRID_HEIGHT] = 1
+                                                    st[:,9][GRID_HEIGHT-r:GRID_HEIGHT] = 1
+                                                    new_st, reward, lines_cancelled = get_next_state(st, shape, action_index)
+                                                    new_reduced_state = encode_state(new_st, N)
+
+                                                    old_q_value = 0
+                                                    temporal_difference = reward + (GAMMA * np.max(Q_values[shape][tuple(new_reduced_state)])) - old_q_value
+                                                    new_q_value = old_q_value + ALPHA * temporal_difference
+                                                    Q_values[shape][tuple([i,j,k,l,m,n,o,p,q,r])][action_index] = new_q_value
+                                                counter += 1
+                                                    
+    print('training for shape ' + shape + 'complete...')
+end = time()
+print('initialization complete. Time elapsed = ' + str(end - start) + ' seconds')
 #%% training 
-SCORE = [0]*TRAIN_EPISODES
+SCORE = [0]*EPOCHS*EPISODE_PER_EPOCH
 
-for episode in range(TRAIN_EPISODES):
-    if episode % 100 == 0:
-        print('training episode ' + str(episode) + '...')
-    # start a new board
-    st = np.zeros((20, 10))
-    while not is_terminal_state(st):
-        # reduced state representation of st by encoding based on its top 4 lines:
-        old_reduced_state = encode_state(st, N)
+for epoch in range(EPOCHS):
+    for episode in range(EPISODE_PER_EPOCH):
+        if episode % 100 == 0:
+            print('epoch = ' + str(epoch) +'. episode = ' + str(episode) + '. EPSILON = ' + str(EPSILON))
+        # start a new board
+        st = np.zeros((GRID_HEIGHT, GRID_WIDTH))
+        while not is_terminal_state(st):
+            # generate next 7 random shapes of tetriminoe per TGM random generator
+            shapes = list('OIJLSTZ')
+            shuffle(shapes)
+            for shape in shapes:
+            
+                # reduced state representation of st by encoding based on its top 4 lines:
+                old_reduced_state = encode_state(st, N)
+            
+                # get a sequence of action from list of ACTIONS
+                action_index = get_next_action(old_reduced_state, shape)
+        
+                # get the next state and reward based on current state and action chosen
+                new_st, reward, lines_cancelled = get_next_state(st, shape, action_index)
+                new_reduced_state = encode_state(new_st, N)
+        
+                # update Q value based on temporal difference
+                old_q_value = Q_values[shape][tuple(old_reduced_state)][action_index]
+                temporal_difference = reward + (GAMMA * np.max(Q_values[shape][tuple(new_reduced_state)])) - old_q_value
+                new_q_value = old_q_value + ALPHA * temporal_difference
+                Q_values[shape][tuple(old_reduced_state)][action_index] = new_q_value
+        
+                # transition into new st
+                st = new_st
+        
+                SCORE[epoch*EPISODE_PER_EPOCH + episode] += get_score(lines_cancelled)
 
-        # generate a random piece of tetriminoe
-        shape = get_new_random_shape()
-
-        # get a sequence of action from list of ACTIONS
-        action_index = get_next_action(old_reduced_state, shape)
-
-        # get the next state and reward based on current state and action chosen
-        new_st, reward, lines_cancelled = get_next_state(st, shape, action_index)
-        new_reduced_state = encode_state(new_st, N)
-
-        # update Q value based on temporal difference
-        old_q_value = Q_values[shape][tuple(old_reduced_state)][action_index]
-        temporal_difference = reward + (GAMMA * np.max(Q_values[shape][tuple(new_reduced_state)])) - old_q_value
-        new_q_value = old_q_value + ALPHA * temporal_difference
-        Q_values[shape][tuple(old_reduced_state)][action_index] = new_q_value
-
-        # transition into new st
-        st = new_st
-
-        SCORE[episode] += get_score(lines_cancelled)
-
+        
+for shape in SHAPES:
+    print('The ratio of trained Q_values for ' + shape + ' is ' + str(np.count_nonzero(Q_values[shape])/Q_values[shape].size))
 #%% save results
 for shape in SHAPES:
     with open('Q_values/N=' + str(N) + '/Q_mat_' + shape + '.npy', 'wb') as file:
         np.save(file, Q_values[shape])
-#%% actual game where we set EPSILON = 1
-EPSILON = 1
-st = np.zeros((20, 10))
-score = 0
-while not is_terminal_state(st):
-    # reduced state representation of st by encoding based on its top 4 lines:
-    old_reduced_state = encode_state(st, N)
-
-    # generate a random piece of tetriminoe
-    shape = get_new_random_shape()
-
-    # get a sequence of action from list of ACTIONS
-    action_index = get_next_action(old_reduced_state, shape)
-
-    # get the next state and reward based on current state and action chosen
-    new_st, reward, lines_cancelled = get_next_state(st, shape, action_index)
-    new_reduced_state = encode_state(new_st, N)
-
-    # transition into new st
-    st = new_st
-    score += get_score(lines_cancelled)
-print('score for this game is ' + str(score))
+#%% actual game where we set EPSILON = 0
+EPSILON = 0
+TEST_SCORES = []
+for i in range(1000):
+    st = np.zeros((GRID_HEIGHT, GRID_WIDTH))
+    score = 0
+    while not is_terminal_state(st):
+        # generate next 7 random shapes of tetriminoe per TGM random generator
+        shapes = list('OIJLSTZ')
+        shuffle(shapes)
+        for shape in shapes:
+                
+            # reduced state representation of st by encoding based on its top 4 lines:
+            old_reduced_state = encode_state(st, N)
+        
+            # get a sequence of action from list of ACTIONS
+            action_index = get_next_action(old_reduced_state, shape)
+        
+            # get the next state and reward based on current state and action chosen
+            new_st, reward, lines_cancelled = get_next_state(st, shape, action_index)
+            new_reduced_state = encode_state(new_st, N)
+        
+            # transition into new st
+            st = new_st
+            score += get_score(lines_cancelled)
+    TEST_SCORES.append(score)
+print('average score is ' + str(sum(TEST_SCORES)/100))
